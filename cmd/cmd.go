@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/qodirtok/go-rest-docs-laporan/internal/config"
+	"github.com/qodirtok/go-rest-docs-laporan/internal/container"
 	"github.com/qodirtok/go-rest-docs-laporan/internal/middleware"
-	"github.com/qodirtok/go-rest-docs-laporan/internal/pkg/user/container"
 )
 
 func Getenv() {
@@ -23,16 +23,25 @@ func Cmd() {
 	Getenv()
 	db := config.ConnectionDB()
 
-	migration(db)
+	// Migration(db)
+	Migration(db)
 
 	user := container.BuildContainerUser(db)
+	login := container.BuildLoginContainer(db)
 
 	rest := gin.Default()
 	rest.Use(middleware.LoggerMiddleware)
 
-	v1 := rest.Group("/v1")
-	v1.POST("/user", user.PostUserHandler)
-	v1.GET("/user", user.GetUserHandler)
+	v1 := rest.Group("/v1/auth")
+	v1.POST("/register", login.PostLoginCreate)
+	v1.POST("/login", login.Login)
+	auth := rest.Group("/v1/api")
+	auth.Use(middleware.JWTAuthMiddleware())
+	auth.POST("/user", user.PostUserHandler)
+	auth.GET("/user", user.GetUserHandler)
+	auth.GET("/user/:id", user.GetUserByIdHandler)
+	auth.POST("/user/:id", user.UserUpdateHandler)
+	auth.DELETE("/user/:id", user.UserDeleteHandler)
 
 	err := rest.Run(":8000")
 
